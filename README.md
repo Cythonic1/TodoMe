@@ -8,3 +8,7 @@ Currently am still exploring BubbleTea its quite fun framework. I managed to par
 
 
 
+## todos
+- [ ] imporve todo modification
+- [ ] add todo to the current existing todos.
+- [ ] add configuration file parser 

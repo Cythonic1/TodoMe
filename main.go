@@ -30,21 +30,40 @@ type Module struct {
 	choice   []string
 	cursor   int
 	selected map[int]struct{}
+	tasks    pkg.TodayTasks
 }
 
 func InitialModule() Module {
-	TasksParser := pkg.Init()
-	TasksParser.ParseFile("/home/groot/Documents/Obsidian Vault/Weekly Tasks/week14.md")
+	TasksParser := pkg.Init("/home/groot/Desktop/go/todo_bubbleTea/testfile")
+	TasksParser.ParseFile()
 
 	return Module{
 		choice:   TasksParser.Tasks,
 		selected: make(map[int]struct{}),
+		tasks:    *TasksParser,
 	}
 
 }
 
 func (m Module) Init() tea.Cmd {
 	return nil
+}
+
+func (m Module) updateTasks() {
+	m.tasks.Tasks = m.choice
+	m.tasks.ReplaceTodos() // <- apply changes in memory
+
+	// Now write the whole file content back
+	f, err := os.OpenFile(m.tasks.FilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		fmt.Println("Failed to write updated file:", err)
+		return
+	}
+	defer f.Close()
+
+	for _, line := range m.tasks.FileContent {
+		f.WriteString(line + "\n")
+	}
 }
 
 func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -70,6 +89,9 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.selected[m.cursor] = struct{}{}
 			}
+
+		case "u":
+			m.updateTasks()
 		}
 	}
 
@@ -111,5 +133,8 @@ func main() {
 		fmt.Printf("Bee, there's been an error: %v", err)
 		os.Exit(1)
 	}
+	// TasksParser := pkg.Init("/home/groot/Documents/Obsidian Vault/Weekly Tasks/week15.md")
+	// TasksParser.ParseFile()
+	// TasksParser.PrintTodaysTasks()
 
 }
