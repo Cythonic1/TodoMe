@@ -55,6 +55,7 @@ func (task *TodayTasks) ParseFile() {
 		if strings.Contains(line, today) {
 			flag = true
 			fmt.Println("Todays exisit")
+			task.FileContent = append(task.FileContent, line)
 			continue
 		}
 		if flag {
@@ -98,22 +99,33 @@ func (task *TodayTasks) ReplaceTodos() {
 	flag := false
 	today := fmt.Sprintf("%s – %s %d", task.weekDay, task.month, task.weekDayNumber)
 	regex := regexp.MustCompile(`- \[.*\]`)
+	file, err := os.OpenFile("myfile.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+
+	if err != nil {
+		log.Fatal("Error writing todos")
+	}
 
 	taskIndex := 0 // index into updated task.Tasks
 
 	for i, line := range task.FileContent {
 		if strings.Contains(line, today) {
 			flag = true
+			file.WriteString(task.FileContent[i] + "\n")
 			continue
 		}
 		if flag {
 			if strings.Contains(line, "---") {
-				break // End of today’s section
+				file.WriteString(line + "\n")
+				flag = false
+				continue
 			}
-			if regex.Match([]byte(line)) && taskIndex < len(task.Tasks) {
-				task.FileContent[i] = task.Tasks[taskIndex]
+			// TODO: FIX this when the user does not add any todos
+			if regex.Match([]byte(line)) || taskIndex < len(task.Tasks) {
+				file.WriteString(task.Tasks[taskIndex] + "\n")
 				taskIndex++
+				continue
 			}
 		}
+		file.WriteString(task.FileContent[i] + "\n")
 	}
 }

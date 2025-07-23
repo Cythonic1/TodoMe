@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Cythonic1/bubleTea/pkg"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -27,43 +29,47 @@ var (
 )
 
 type Module struct {
-	choice   []string
-	cursor   int
-	selected map[int]struct{}
-	tasks    pkg.TodayTasks
+	choice       []string
+	cursor       int
+	selected     map[int]struct{}
+	tasks        pkg.TodayTasks
+	textBox      textinput.Model
+	textBoxState bool
 }
 
 func InitialModule() Module {
+	ti := textinput.New()
+	ti.CharLimit = 255
+	ti.Width = 100
 	TasksParser := pkg.Init("/home/groot/Desktop/go/todo_bubbleTea/testfile")
 	TasksParser.ParseFile()
 
 	return Module{
-		choice:   TasksParser.Tasks,
-		selected: make(map[int]struct{}),
-		tasks:    *TasksParser,
+		choice:       TasksParser.Tasks,
+		selected:     make(map[int]struct{}),
+		tasks:        *TasksParser,
+		textBox:      ti,
+		textBoxState: false,
 	}
 
 }
 
 func (m Module) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
 func (m Module) updateTasks() {
-	m.tasks.Tasks = m.choice
-	m.tasks.ReplaceTodos() // <- apply changes in memory
-
-	// Now write the whole file content back
-	f, err := os.OpenFile(m.tasks.FilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		fmt.Println("Failed to write updated file:", err)
-		return
+	for index, _ := range m.choice {
+		_, ok := m.selected[index]
+		if ok {
+			parts := strings.Split(m.tasks.Tasks[index], "]")
+			m.tasks.Tasks[index] = "- [x]" + parts[1]
+		} else {
+			parts := strings.Split(m.tasks.Tasks[index], "]")
+			m.tasks.Tasks[index] = "- [ ]" + parts[1]
+		}
 	}
-	defer f.Close()
-
-	for _, line := range m.tasks.FileContent {
-		f.WriteString(line + "\n")
-	}
+	m.tasks.ReplaceTodos()
 }
 
 func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -82,7 +88,7 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < len(m.choice)-1 {
 				m.cursor++
 			}
-		case "enter", " ":
+		case " ":
 			_, ok := m.selected[m.cursor]
 			if ok {
 				delete(m.selected, m.cursor)
@@ -92,9 +98,38 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "u":
 			m.updateTasks()
+
+		case "m":
+			m.textBoxState = !m.textBoxState
+			if m.textBoxState {
+				m.textBox.Focus()
+			} else {
+				m.textBox.Blur()
+			}
+		case tea.KeyEnter.String():
+			userInput := m.textBox.Value()
+			if userInput != "" {
+				m.choice = append(m.choice, userInput)
+				if !strings.Contains(userInput, "- [ ]") {
+					m.tasks.Tasks = append(m.tasks.Tasks, "- [ ] "+userInput)
+				} else {
+					m.tasks.Tasks = append(m.tasks.Tasks, userInput)
+				}
+
+			}
+			m.textBox.SetValue("")
+			m.textBox.Blur()
+			m.textBoxState = false
+
 		}
+
 	}
 
+	if m.textBoxState {
+		var cmd tea.Cmd
+		m.textBox, cmd = m.textBox.Update(msg)
+		return m, cmd
+	}
 	return m, nil
 }
 
@@ -124,7 +159,11 @@ func (m Module) View() string {
 	}
 
 	body += "\n Press q or Ctrl+c to quit\n"
-	return header + "\n\n" + body
+	view := header + "\n\n" + body
+	if m.textBoxState {
+		view += "\n" + m.textBox.View()
+	}
+	return view
 }
 
 func main() {
@@ -133,8 +172,4 @@ func main() {
 		fmt.Printf("Bee, there's been an error: %v", err)
 		os.Exit(1)
 	}
-	// TasksParser := pkg.Init("/home/groot/Documents/Obsidian Vault/Weekly Tasks/week15.md")
-	// TasksParser.ParseFile()
-	// TasksParser.PrintTodaysTasks()
-
 }
