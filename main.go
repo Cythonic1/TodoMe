@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -12,21 +14,23 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var (
-	cursorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("205")) // pinkish
-	selectedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("229")). // bright yellow
-			Background(lipgloss.Color("57")).  // dark blue bg
-			Bold(true)
+type Styles struct {
+	CursorStyle  lipgloss.Color
+	Boarder      lipgloss.Color
+	SelectedItem lipgloss.Style
+	InputField   lipgloss.Style
+	Header       lipgloss.Style
+}
 
-	normalStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("250")) // light gray
-
-	headerStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("33")). // blue
-			Bold(true).
-			Underline(true)
-)
+func InitStyle() *Styles {
+	s := new(Styles)
+	s.Boarder = lipgloss.Color(pkg.Catppuccin_base)
+	s.CursorStyle = lipgloss.Color(pkg.Catppuccin_lavender)
+	s.SelectedItem = lipgloss.NewStyle().BorderBackground(s.Boarder).BorderStyle(lipgloss.NormalBorder())
+	s.InputField = lipgloss.NewStyle().BorderBackground(lipgloss.Color(pkg.Catppuccin_crust)).BorderStyle(lipgloss.RoundedBorder())
+	s.Header = lipgloss.NewStyle().BorderForeground(lipgloss.Color(pkg.Catppuccin_blue)).BorderStyle(lipgloss.RoundedBorder())
+	return s
+}
 
 type Module struct {
 	choice       []string
@@ -35,14 +39,27 @@ type Module struct {
 	tasks        pkg.TodayTasks
 	textBox      textinput.Model
 	textBoxState bool
+	width        int
+	height       int
+	styles       *Styles
 }
 
 func InitialModule() Module {
+	// Setting text input
 	ti := textinput.New()
 	ti.CharLimit = 255
 	ti.Width = 100
+	ti.Placeholder = "What would you like todo ?"
+
+	// Parsing file
 	TasksParser := pkg.Init("/home/groot/Desktop/go/todo_bubbleTea/testfile")
 	TasksParser.ParseFile()
+
+	// To take full screent
+	tea.WithAltScreen()
+
+	// Setting styles
+	style := InitStyle()
 
 	return Module{
 		choice:       TasksParser.Tasks,
@@ -50,8 +67,17 @@ func InitialModule() Module {
 		tasks:        *TasksParser,
 		textBox:      ti,
 		textBoxState: false,
+		styles:       style,
 	}
 
+}
+
+func clear() {
+	cmd := exec.Command("clear")
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
+		log.Fatal("Error executing os")
+	}
 }
 
 func (m Module) Init() tea.Cmd {
@@ -106,6 +132,7 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.textBox.Blur()
 			}
+
 		case tea.KeyEnter.String():
 			userInput := m.textBox.Value()
 			if userInput != "" {
@@ -123,9 +150,16 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		}
 
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+
 	}
 
 	if m.textBoxState {
+		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "m" {
+			return m, nil
+		}
 		var cmd tea.Cmd
 		m.textBox, cmd = m.textBox.Update(msg)
 		return m, cmd
@@ -133,37 +167,34 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Module) View() string {
-	var body string
+// for i, choice := range m.choice {
+// 	cursor := " "
+// 	if m.cursor == i {
+// 		cursor = "➤  "
+// 	}
+// 	checked := " "
+// 	if _, ok := m.selected[i]; ok {
+// 		checked = "✔"
+// 	}
+// 	line := fmt.Sprintf("%s [%s] %s", cursor, checked, choice)
+//
+// 	if m.cursor == i {
+// 		body += selectedStyle.Render(line) + "\n"
+// 	} else {
+// 		body += normalStyle.Render(line) + "\n"
+// 	}
+// }
 
+func (m Module) View() string {
+
+	// Header
 	_, month, day := time.Now().Date()
 	weekday := time.Now().Weekday()
-	header := headerStyle.Render(fmt.Sprintf("📅 What would you like to do today: %d/%d (%s)\n", month, day, weekday.String()))
 
-	for i, choice := range m.choice {
-		cursor := " "
-		if m.cursor == i {
-			cursor = "➤  "
-		}
-		checked := " "
-		if _, ok := m.selected[i]; ok {
-			checked = "✔"
-		}
-		line := fmt.Sprintf("%s [%s] %s", cursor, checked, choice)
+	header := m.styles.Header.Render(fmt.Sprintf("📅 What would you like to do today: %d/%d (%s)\n", month, day, weekday.String()))
 
-		if m.cursor == i {
-			body += selectedStyle.Render(line) + "\n"
-		} else {
-			body += normalStyle.Render(line) + "\n"
-		}
-	}
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Center, header))
 
-	body += "\n Press q or Ctrl+c to quit\n"
-	view := header + "\n\n" + body
-	if m.textBoxState {
-		view += "\n" + m.textBox.View()
-	}
-	return view
 }
 
 func main() {
@@ -172,4 +203,6 @@ func main() {
 		fmt.Printf("Bee, there's been an error: %v", err)
 		os.Exit(1)
 	}
+	clear()
+
 }

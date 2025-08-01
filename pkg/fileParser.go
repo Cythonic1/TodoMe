@@ -105,7 +105,7 @@ func (task *TodayTasks) ReplaceTodos() {
 		log.Fatal("Error writing todos")
 	}
 
-	taskIndex := 0 // index into updated task.Tasks
+	taskIndex := 0
 
 	for i, line := range task.FileContent {
 		if strings.Contains(line, today) {
@@ -120,7 +120,8 @@ func (task *TodayTasks) ReplaceTodos() {
 				continue
 			}
 			// TODO: FIX this when the user does not add any todos
-			if regex.Match([]byte(line)) || taskIndex < len(task.Tasks) {
+			// UPDATE: FIXED
+			if regex.Match([]byte(line)) {
 				file.WriteString(task.Tasks[taskIndex] + "\n")
 				taskIndex++
 				continue
