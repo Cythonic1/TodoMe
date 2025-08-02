@@ -15,20 +15,24 @@ import (
 )
 
 type Styles struct {
-	CursorStyle  lipgloss.Color
-	Boarder      lipgloss.Color
-	SelectedItem lipgloss.Style
-	InputField   lipgloss.Style
-	Header       lipgloss.Style
+	CursorStyle    lipgloss.Color
+	Boarder        lipgloss.Color
+	SelectedItem   lipgloss.Style
+	NormalItem     lipgloss.Style
+	InputField     lipgloss.Style
+	Header         lipgloss.Style
+	ContentBoarder lipgloss.Style
 }
 
 func InitStyle() *Styles {
 	s := new(Styles)
 	s.Boarder = lipgloss.Color(pkg.Catppuccin_base)
 	s.CursorStyle = lipgloss.Color(pkg.Catppuccin_lavender)
-	s.SelectedItem = lipgloss.NewStyle().BorderBackground(s.Boarder).BorderStyle(lipgloss.NormalBorder())
-	s.InputField = lipgloss.NewStyle().BorderBackground(lipgloss.Color(pkg.Catppuccin_crust)).BorderStyle(lipgloss.RoundedBorder())
-	s.Header = lipgloss.NewStyle().BorderForeground(lipgloss.Color(pkg.Catppuccin_blue)).BorderStyle(lipgloss.RoundedBorder())
+	s.SelectedItem = lipgloss.NewStyle().BorderForeground(lipgloss.Color(pkg.Catppuccin_pink)).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(120)
+	s.NormalItem = lipgloss.NewStyle().BorderForeground(s.Boarder).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(120)
+	s.InputField = lipgloss.NewStyle().BorderForeground(lipgloss.Color(pkg.Catppuccin_crust)).BorderStyle(lipgloss.RoundedBorder())
+	s.Header = lipgloss.NewStyle().Foreground(lipgloss.Color(pkg.Catppuccin_green))
+	s.ContentBoarder = lipgloss.NewStyle().BorderForeground(lipgloss.Color(pkg.Catppuccin_peach)).Padding(5).BorderStyle(lipgloss.RoundedBorder())
 	return s
 }
 
@@ -52,7 +56,7 @@ func InitialModule() Module {
 	ti.Placeholder = "What would you like todo ?"
 
 	// Parsing file
-	TasksParser := pkg.Init("/home/groot/Desktop/go/todo_bubbleTea/testfile")
+	TasksParser := pkg.Init("/home/groot/projects/go/TodoMe/testfile")
 	TasksParser.ParseFile()
 
 	// To take full screent
@@ -115,6 +119,8 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case " ":
+
+			m.HandleSelectedItem(m.cursor)
 			_, ok := m.selected[m.cursor]
 			if ok {
 				delete(m.selected, m.cursor)
@@ -134,20 +140,15 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case tea.KeyEnter.String():
-			userInput := m.textBox.Value()
-			if userInput != "" {
-				m.choice = append(m.choice, userInput)
-				if !strings.Contains(userInput, "- [ ]") {
-					m.tasks.Tasks = append(m.tasks.Tasks, "- [ ] "+userInput)
-				} else {
-					m.tasks.Tasks = append(m.tasks.Tasks, userInput)
-				}
-
+			m.textBoxState = !m.textBoxState
+			if m.textBoxState {
+				m.textBox.SetValue(m.choice[m.cursor])
+				return m, m.textBox.Focus()
+			} else {
+				text := m.textBox.Value()
+				m.choice[m.cursor] = text
+				return m, nil
 			}
-			m.textBox.SetValue("")
-			m.textBox.Blur()
-			m.textBoxState = false
-
 		}
 
 	case tea.WindowSizeMsg:
@@ -185,16 +186,63 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // 	}
 // }
 
+func (m Module) HandleSelectedItem(i int) {
+
+	if i < 0 || i > len(m.choice) {
+		return
+	}
+	if strings.HasPrefix(m.choice[i], "- [ ]") {
+		parts := strings.Split(m.choice[i], "]")
+		m.choice[i] = "- [x]" + parts[1]
+	} else {
+		parts := strings.Split(m.choice[i], "]")
+		m.choice[i] = "- [ ]" + parts[1]
+
+	}
+
+}
+
 func (m Module) View() string {
 
+	var todos []string
 	// Header
 	_, month, day := time.Now().Date()
 	weekday := time.Now().Weekday()
 
 	header := m.styles.Header.Render(fmt.Sprintf("📅 What would you like to do today: %d/%d (%s)\n", month, day, weekday.String()))
+	textBox := m.styles.InputField.Render(m.textBox.View())
 
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Center, header))
+	for index, todo := range m.choice {
+		var line string
+		if index == m.cursor {
+			line = m.styles.SelectedItem.Render(todo)
+		} else {
+			line = m.styles.NormalItem.Render(todo)
+		}
 
+		todos = append(todos, line)
+	}
+
+	todoList := lipgloss.JoinVertical(lipgloss.Left, todos...)
+
+	if m.textBoxState {
+		content := lipgloss.JoinVertical(
+			lipgloss.Center,
+			header,
+			todoList,
+			textBox,
+		)
+
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.styles.ContentBoarder.Render(content))
+	}
+
+	content := lipgloss.JoinVertical(
+		lipgloss.Center,
+		header,
+		todoList,
+	)
+
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.styles.ContentBoarder.Render(content))
 }
 
 func main() {
