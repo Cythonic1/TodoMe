@@ -14,6 +14,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type Mode int
+
+const (
+	NormalMode Mode = iota
+	UpdateMode
+)
+
 type Styles struct {
 	CursorStyle    lipgloss.Color
 	Boarder        lipgloss.Color
@@ -37,6 +44,7 @@ func InitStyle() *Styles {
 }
 
 type Module struct {
+	appMode      Mode
 	choice       []string
 	cursor       int
 	selected     map[int]struct{}
@@ -66,6 +74,7 @@ func InitialModule() Module {
 	style := InitStyle()
 
 	return Module{
+		appMode:      NormalMode,
 		choice:       TasksParser.Tasks,
 		selected:     make(map[int]struct{}),
 		tasks:        *TasksParser,
@@ -103,68 +112,99 @@ func (m Module) updateTasks() {
 }
 
 func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
+	switch m.appMode {
+	case NormalMode:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "ctrl+c", "q":
+				return m, tea.Quit
 
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+				}
 
-		case "down", "j":
-			if m.cursor < len(m.choice)-1 {
-				m.cursor++
-			}
-		case " ":
+			case "down", "j":
+				if m.cursor < len(m.choice)-1 {
+					m.cursor++
+				}
+			case " ":
 
-			m.HandleSelectedItem(m.cursor)
-			_, ok := m.selected[m.cursor]
-			if ok {
-				delete(m.selected, m.cursor)
-			} else {
-				m.selected[m.cursor] = struct{}{}
-			}
+				m.HandleSelectedItem(m.cursor)
+				_, ok := m.selected[m.cursor]
+				if ok {
+					delete(m.selected, m.cursor)
+				} else {
+					m.selected[m.cursor] = struct{}{}
+				}
 
-		case "u":
-			m.updateTasks()
+			case "u":
+				m.updateTasks()
 
-		case "m":
-			m.textBoxState = !m.textBoxState
-			if m.textBoxState {
-				m.textBox.Focus()
-			} else {
-				m.textBox.Blur()
-			}
-
-		case tea.KeyEnter.String():
-			m.textBoxState = !m.textBoxState
-			if m.textBoxState {
-				m.textBox.SetValue(m.choice[m.cursor])
+			case "e":
+				m.textBoxState = !m.textBoxState
+				m.appMode = UpdateMode
+				if m.textBoxState {
+					m.textBox.SetValue(m.choice[m.cursor])
+					return m, m.textBox.Focus()
+				}
+			case "a":
+				// Todo add
+				m.textBoxState = !m.textBoxState
+				m.textBox.SetValue("")
+				m.appMode = UpdateMode
 				return m, m.textBox.Focus()
-			} else {
+
+			}
+
+		case tea.WindowSizeMsg:
+			m.width = msg.Width
+			m.height = msg.Height
+
+		}
+
+		return m, nil
+
+	case UpdateMode:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "e":
 				text := m.textBox.Value()
 				m.choice[m.cursor] = text
+				m.textBoxState = false
+				m.appMode = NormalMode
+				return m, nil
+
+			case "esc":
+				// Cancel editing
+				m.textBoxState = false
+				m.appMode = NormalMode
+				return m, nil
+
+			case "a":
+				text := m.textBox.Value()
+				if text == "" {
+					m.textBoxState = false
+					m.appMode = NormalMode
+					return m, nil
+				}
+				m.choice = append(m.choice, text)
+				m.textBoxState = false
+				m.appMode = NormalMode
 				return m, nil
 			}
 		}
 
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-
-	}
-
-	if m.textBoxState {
-		if msg, ok := msg.(tea.KeyMsg); ok && msg.String() == "m" {
-			return m, nil
+		if m.textBoxState {
+			var cmd tea.Cmd
+			m.textBox, cmd = m.textBox.Update(msg)
+			return m, cmd
 		}
-		var cmd tea.Cmd
-		m.textBox, cmd = m.textBox.Update(msg)
-		return m, cmd
+
 	}
+
 	return m, nil
 }
 
