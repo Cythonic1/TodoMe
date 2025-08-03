@@ -1,0 +1,114 @@
+# 🗓️ Weekly Plan — Week 17 (August 4 – August 10, 2025)
+
+## 🎯 Weekly Goals
+- [ ] **Exploit Dev**: Complete full BOF exploit → shell (Linux/x86).
+- [ ] **Backdoor Project**: Build encrypted comms using Go’s crypto package (AES or XOR fallback).
+- [ ] **Security Lab**: Try evasive payload on Defender + test system behavior.
+- [ ] **Docs**: Begin writing post: “Modern Buffer Overflows 101” (include debug tips).
+- [ ] **Reading**: Continue Art of Exploitation + read next 2 Black Hat Go chapters.
+- [ ] **Health**: Walk 2× + Gym 2× + Sleep reset at least once.
+
+---
+
+## 🧠 Mindset Theme
+> **“Precision is power. You don’t need more time, just fewer excuses.”** 🧠⚔️
+
+---
+
+## 🧭 Mode
+💉🔐🧠🕶️ — *Exploiter. Cryptographer. Operator. Ghost.*  
+**Focus Mode**: `Minimal Input → Maximum Impact`
+
+---
+
+## 📅 Daily Breakdown
+
+### ✅ Monday – August 4
+- [ ] Refactor previous BOF attempt.
+- [ ] Map stack layout + EIP overwrite.
+- [ ] Document the vulnerable code (for future blog use).
+asdasd
+asdasd
+asdfdsfds
+sdfsdfsdf
+sdfgsdfsdfsd
+---
+
+### ✅ Tuesday – August 5
+**Top 3 Goals**
+- [ ] Complete working BOF exploit (pop shell or crash with control).
+- [ ] Try with `pwndbg` or `gef`.
+- [ ] Save offset & payload layout in markdown.
+
+**📝 Note**
+- You’re not guessing. You’re reverse-engineering. Trust the process.
+
+---
+
+### ✅ Wednesday – August 6
+**Top 3 Goals**
+- [ ] Begin encrypted C2 channel (Go).
+- [ ] Add AES or simple XOR fallback.
+- [ ] Research Go’s `crypto/cipher` vs `x/crypto` libs.
+
+**📝 Note**
+- Encryption isn’t an afterthought — it’s your stealth layer. Keep it modular.
+
+---
+
+### ✅ Thursday – August 7
+**Top 3 Goals**
+- [ ] Read 20 pages Art of Exploitation.
+- [ ] Read Black Hat Go (Chapter 4/5).
+- [ ] Add blog intro for “Buffer Overflows 101”.
+
+**📝 Note**
+- Combine reading + writing → it reinforces mastery.
+
+---
+
+### ✅ Friday – August 8
+**Top 3 Goals**
+- [ ] Test basic evasion payload (Go backdoor) on local Windows + Defender.
+- [ ] Record how AV reacts → logs, alerts, behaviors.
+- [ ] Document method for next stage bypass.
+
+**📝 Note**
+- If AV blocks it — good. It means you're getting close.
+
+---
+
+### ✅ Saturday – August 9
+**Top 3 Goals**
+- [ ] Code cleanup for backdoor project.
+- [ ] Journal or note mental state.
+- [ ] Go for a full walk + gym reset.
+
+**📝 Note**
+- Sharpen code, sharpen mind. Movement fuels focus.
+
+---
+
+### ✅ Sunday – August 10
+**Top 3 Goals**
+- [ ] Final BOF review + test alternate shell payloads.
+- [ ] Push encrypted comms version of Go backdoor.
+- [ ] Summarize week + plan for Week 18.
+
+**📝 Note**
+- Sunday = ops wrap-up. Pack everything. Document. Archive results.
+
+---
+
+## 📚 Learning / Reading
+- [ ] Art of Exploitation – Chapter 3 (continue stack section).
+- [ ] Black Hat Go – Payload encoding + web interactions.
+- [ ] Review MITRE T1055.002 (thread injection).
+
+---
+
+## 📝 NOTE — execydat
+```text
+⚙️ You don’t need noise. You need flow.
+1 shell = 100 lessons. 1 bypass = 100 hours saved.
+Let the others panic. You study, build, and break in silence.

@@ -18,17 +18,19 @@ type Mode int
 
 const (
 	NormalMode Mode = iota
-	UpdateMode
+	UpdateTodoMode
+	AddTodoMode
 )
 
 type Styles struct {
-	CursorStyle    lipgloss.Color
-	Boarder        lipgloss.Color
-	SelectedItem   lipgloss.Style
-	NormalItem     lipgloss.Style
-	InputField     lipgloss.Style
-	Header         lipgloss.Style
-	ContentBoarder lipgloss.Style
+	CursorStyle     lipgloss.Color
+	Boarder         lipgloss.Color
+	SelectedItem    lipgloss.Style
+	NormalItem      lipgloss.Style
+	InputField      lipgloss.Style
+	Header          lipgloss.Style
+	ContentBoarder  lipgloss.Style
+	BackGroundStuff lipgloss.Style
 }
 
 func InitStyle() *Styles {
@@ -40,6 +42,8 @@ func InitStyle() *Styles {
 	s.InputField = lipgloss.NewStyle().BorderForeground(lipgloss.Color(pkg.Catppuccin_crust)).BorderStyle(lipgloss.RoundedBorder())
 	s.Header = lipgloss.NewStyle().Foreground(lipgloss.Color(pkg.Catppuccin_green))
 	s.ContentBoarder = lipgloss.NewStyle().BorderForeground(lipgloss.Color(pkg.Catppuccin_peach)).Padding(5).BorderStyle(lipgloss.RoundedBorder())
+	s.BackGroundStuff = lipgloss.NewStyle().Foreground(lipgloss.Color(pkg.Catppuccin_subtext0))
+
 	return s
 }
 
@@ -54,6 +58,8 @@ type Module struct {
 	width        int
 	height       int
 	styles       *Styles
+	viewStart    int // NEW: starting index of visible todos
+	viewHeight   int // NEW: how many todos can be shown at once
 }
 
 func InitialModule() Module {
@@ -64,7 +70,7 @@ func InitialModule() Module {
 	ti.Placeholder = "What would you like todo ?"
 
 	// Parsing file
-	TasksParser := pkg.Init("/home/groot/projects/go/TodoMe/testfile")
+	TasksParser := pkg.Init("/home/groot/Desktop/go/todo_bubbleTea/testfile")
 	TasksParser.ParseFile()
 
 	// To take full screent
@@ -81,6 +87,8 @@ func InitialModule() Module {
 		textBox:      ti,
 		textBoxState: false,
 		styles:       style,
+		viewStart:    0,
+		viewHeight:   3,
 	}
 
 }
@@ -98,15 +106,10 @@ func (m Module) Init() tea.Cmd {
 }
 
 func (m Module) updateTasks() {
-	for index, _ := range m.choice {
-		_, ok := m.selected[index]
-		if ok {
-			parts := strings.Split(m.tasks.Tasks[index], "]")
-			m.tasks.Tasks[index] = "- [x]" + parts[1]
-		} else {
-			parts := strings.Split(m.tasks.Tasks[index], "]")
-			m.tasks.Tasks[index] = "- [ ]" + parts[1]
-		}
+	fmt.Print(len(m.choice))
+	m.tasks.Tasks = []string{}
+	for _, item := range m.choice {
+		m.tasks.Tasks = append(m.tasks.Tasks, item)
 	}
 	m.tasks.ReplaceTodos()
 }
@@ -123,11 +126,18 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "up", "k":
 				if m.cursor > 0 {
 					m.cursor--
+					if m.cursor < m.viewStart {
+						m.viewStart = m.cursor
+					}
 				}
 
 			case "down", "j":
 				if m.cursor < len(m.choice)-1 {
 					m.cursor++
+
+					if m.cursor >= m.viewStart+m.viewHeight {
+						m.viewStart = m.cursor - m.viewHeight + 1
+					}
 				}
 			case " ":
 
@@ -144,7 +154,7 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case "e":
 				m.textBoxState = !m.textBoxState
-				m.appMode = UpdateMode
+				m.appMode = UpdateTodoMode
 				if m.textBoxState {
 					m.textBox.SetValue(m.choice[m.cursor])
 					return m, m.textBox.Focus()
@@ -153,7 +163,7 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Todo add
 				m.textBoxState = !m.textBoxState
 				m.textBox.SetValue("")
-				m.appMode = UpdateMode
+				m.appMode = AddTodoMode
 				return m, m.textBox.Focus()
 
 			}
@@ -166,11 +176,11 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
-	case UpdateMode:
+	case UpdateTodoMode:
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
 			switch msg.String() {
-			case "e":
+			case "enter":
 				text := m.textBox.Value()
 				m.choice[m.cursor] = text
 				m.textBoxState = false
@@ -183,7 +193,20 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.appMode = NormalMode
 				return m, nil
 
-			case "a":
+			}
+		}
+
+		if m.textBoxState {
+			var cmd tea.Cmd
+			m.textBox, cmd = m.textBox.Update(msg)
+			return m, cmd
+		}
+
+	case AddTodoMode:
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "enter":
 				text := m.textBox.Value()
 				if text == "" {
 					m.textBoxState = false
@@ -196,35 +219,15 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		}
-
 		if m.textBoxState {
 			var cmd tea.Cmd
 			m.textBox, cmd = m.textBox.Update(msg)
 			return m, cmd
 		}
-
 	}
 
 	return m, nil
 }
-
-// for i, choice := range m.choice {
-// 	cursor := " "
-// 	if m.cursor == i {
-// 		cursor = "➤  "
-// 	}
-// 	checked := " "
-// 	if _, ok := m.selected[i]; ok {
-// 		checked = "✔"
-// 	}
-// 	line := fmt.Sprintf("%s [%s] %s", cursor, checked, choice)
-//
-// 	if m.cursor == i {
-// 		body += selectedStyle.Render(line) + "\n"
-// 	} else {
-// 		body += normalStyle.Render(line) + "\n"
-// 	}
-// }
 
 func (m Module) HandleSelectedItem(i int) {
 
@@ -242,24 +245,37 @@ func (m Module) HandleSelectedItem(i int) {
 
 }
 
-func (m Module) View() string {
+func clamp(val, min, max int) int {
+	if val < min {
+		return min
+	}
+	if val > max {
+		return max
+	}
+	return val
+}
 
+func (m Module) View() string {
 	var todos []string
-	// Header
+
 	_, month, day := time.Now().Date()
 	weekday := time.Now().Weekday()
-
 	header := m.styles.Header.Render(fmt.Sprintf("📅 What would you like to do today: %d/%d (%s)\n", month, day, weekday.String()))
 	textBox := m.styles.InputField.Render(m.textBox.View())
+	scrollPos := m.styles.BackGroundStuff.Render(fmt.Sprintf("📜 [%d/%d]", m.cursor+1, len(m.choice)))
 
-	for index, todo := range m.choice {
+	// Ensure view window is within bounds
+	end := clamp(m.viewStart+m.viewHeight, 0, len(m.choice))
+	visibleTodos := m.choice[m.viewStart:end]
+
+	for index, todo := range visibleTodos {
+		actualIndex := index + m.viewStart
 		var line string
-		if index == m.cursor {
+		if actualIndex == m.cursor {
 			line = m.styles.SelectedItem.Render(todo)
 		} else {
 			line = m.styles.NormalItem.Render(todo)
 		}
-
 		todos = append(todos, line)
 	}
 
@@ -271,8 +287,8 @@ func (m Module) View() string {
 			header,
 			todoList,
 			textBox,
+			scrollPos,
 		)
-
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.styles.ContentBoarder.Render(content))
 	}
 
@@ -280,6 +296,7 @@ func (m Module) View() string {
 		lipgloss.Center,
 		header,
 		todoList,
+		scrollPos,
 	)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.styles.ContentBoarder.Render(content))

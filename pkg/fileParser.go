@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// TODO: Add line number counter to fix the overflow
 type TodayTasks struct {
 	FilePath      string
 	Tasks         []string
@@ -98,7 +99,7 @@ func (task *TodayTasks) PrintTodaysTasks() {
 func (task *TodayTasks) ReplaceTodos() {
 	flag := false
 	today := fmt.Sprintf("%s – %s %d", task.weekDay, task.month, task.weekDayNumber)
-	regex := regexp.MustCompile(`- \[.*\]`)
+	// regex := regexp.MustCompile(`- \[.*\]`)
 	file, err := os.OpenFile("myfile.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 
 	if err != nil {
@@ -106,7 +107,9 @@ func (task *TodayTasks) ReplaceTodos() {
 	}
 
 	taskIndex := 0
+	println("update")
 
+	fmt.Print(len(task.Tasks))
 	for i, line := range task.FileContent {
 		if strings.Contains(line, today) {
 			flag = true
@@ -120,12 +123,16 @@ func (task *TodayTasks) ReplaceTodos() {
 				continue
 			}
 			// TODO: FIX this when the user does not add any todos
-			// UPDATE: FIXED
-			if regex.Match([]byte(line)) {
+
+			// Replace this line with new task, if available
+			if taskIndex < len(task.Tasks) {
 				file.WriteString(task.Tasks[taskIndex] + "\n")
 				taskIndex++
-				continue
+			} else {
+				// No more new tasks: write original
+				file.WriteString(line + "\n")
 			}
+			continue
 		}
 		file.WriteString(task.FileContent[i] + "\n")
 	}
