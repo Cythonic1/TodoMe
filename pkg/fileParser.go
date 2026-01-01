@@ -2,138 +2,108 @@ package pkg
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
-	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
 
-// TODO: Add line number counter to fix the overflow
+const DefaultFolder = "~/notes"
+
 type TodayTasks struct {
-	FilePath      string
-	Tasks         []string
-	weekDay       string
-	month         string
-	weekDayNumber int
-	FileContent   []string
+	FolderPath string
+	Tasks      []string
+	filename   string
 }
 
-func Init(filePath string) *TodayTasks {
-	weekday := time.Now().Weekday().String()
+func checkFolerExisting(folderPath string) (bool, error) {
+	_, err := os.Stat(folderPath)
+	if err != nil {
+		return true, nil
+	}
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return false, err
+}
+
+func Init(folderPath string) *TodayTasks {
+	year := strconv.Itoa(time.Now().Year())
 	month := time.Now().Month().String()
-	dataNumber := time.Now().Day()
+	dayNumber := strconv.Itoa(time.Now().Day())
+
+	//  note_2025-Dec-31.md
+	filename := "note_" + year + "_" + month + "_" + dayNumber + ".md"
+
+	_, err := checkFolerExisting(folderPath)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		os.Exit(1)
+	}
 
 	return &TodayTasks{
-		Tasks:         make([]string, 0),
-		weekDay:       weekday,
-		month:         month,
-		weekDayNumber: dataNumber,
-		FilePath:      filePath,
+		Tasks:      make([]string, 0),
+		FolderPath: folderPath,
+		filename:   filename,
 	}
 
 }
 
 func (task *TodayTasks) ParseFile() {
-	flag := false
-	file, err := os.Open(task.FilePath)
-	if err != nil {
-		log.Fatal("Error opening the file ", err)
-	}
+	fullPath := task.FolderPath + task.filename
+	log.Printf("%s\n", fullPath)
+	file, err := os.OpenFile(fullPath, os.O_CREATE|os.O_RDONLY, 0644)
 	defer file.Close()
+	if err != nil {
+		log.Fatal("Error: {}", err)
+	}
 
 	scanner := bufio.NewScanner(file)
-
-	today := fmt.Sprintf("%s – %s %d", task.weekDay, task.month, task.weekDayNumber)
-	regex := regexp.MustCompile(`- \[.*\]`)
-
-	println(today)
-
 	for scanner.Scan() {
-		line := scanner.Text()
-
-		if strings.Contains(line, today) {
-			flag = true
-			fmt.Println("Todays exisit")
-			task.FileContent = append(task.FileContent, line)
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
 			continue
 		}
-		if flag {
-			if strings.Contains(line, "---") {
-				flag = false
-			}
-			if regex.Match([]byte(line)) {
-				task.Tasks = append(task.Tasks, line)
-			}
-		}
-
-		task.FileContent = append(task.FileContent, line)
-
+		task.Tasks = append(task.Tasks, line)
 	}
 
-	if err := scanner.Err(); err != nil {
-		log.Fatal("Error durning the file reading. Error ", err)
+	for _, line := range task.Tasks {
+		fmt.Printf("%s\n", line)
 	}
 
 }
 
 func (task *TodayTasks) PrintFile() {
-	for _, line := range task.FileContent {
+	for _, line := range task.Tasks {
 		println(line)
 	}
 }
 
 func (task *TodayTasks) PrintTodaysTasks() {
-	file, err := os.OpenFile("myfile.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		log.Fatal("Could not open the file. Error ", err)
-	}
-	for _, todo := range task.Tasks {
-		file.WriteString(todo + "\n")
-	}
-	defer file.Close()
 
 }
 
 func (task *TodayTasks) ReplaceTodos() {
-	flag := false
-	today := fmt.Sprintf("%s – %s %d", task.weekDay, task.month, task.weekDayNumber)
-	// regex := regexp.MustCompile(`- \[.*\]`)
-	file, err := os.OpenFile("myfile.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-
+	tmp, err := os.OpenFile("tmpTodos.txt", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatal("Error writing todos")
+		log.Fatal("Error creating tmp file ", err)
 	}
 
-	taskIndex := 0
-	println("update")
-
-	fmt.Print(len(task.Tasks))
-	for i, line := range task.FileContent {
-		if strings.Contains(line, today) {
-			flag = true
-			file.WriteString(task.FileContent[i] + "\n")
-			continue
-		}
-		if flag {
-			if strings.Contains(line, "---") {
-				file.WriteString(line + "\n")
-				flag = false
-				continue
-			}
-			// TODO: FIX this when the user does not add any todos
-
-			// Replace this line with new task, if available
-			if taskIndex < len(task.Tasks) {
-				file.WriteString(task.Tasks[taskIndex] + "\n")
-				taskIndex++
-			} else {
-				// No more new tasks: write original
-				file.WriteString(line + "\n")
-			}
-			continue
-		}
-		file.WriteString(task.FileContent[i] + "\n")
+	defer os.Remove(tmp.Name())
+	for _, val := range task.Tasks {
+		tmp.WriteString(val + "\n")
 	}
+	if err := tmp.Sync(); err != nil {
+		log.Fatal("Error sync ", err)
+	}
+	if err := tmp.Close(); err != nil {
+		log.Fatal("Error Close ", err)
+	}
+
+	os.Rename(tmp.Name(), task.FolderPath+task.filename)
+
 }

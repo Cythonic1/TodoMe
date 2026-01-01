@@ -31,6 +31,7 @@ type Styles struct {
 	Header          lipgloss.Style
 	ContentBoarder  lipgloss.Style
 	BackGroundStuff lipgloss.Style
+	UsageLine       lipgloss.Style
 }
 
 func InitStyle() *Styles {
@@ -43,6 +44,7 @@ func InitStyle() *Styles {
 	s.Header = lipgloss.NewStyle().Foreground(lipgloss.Color(pkg.Catppuccin_green))
 	s.ContentBoarder = lipgloss.NewStyle().BorderForeground(lipgloss.Color(pkg.Catppuccin_peach)).Padding(5).BorderStyle(lipgloss.RoundedBorder())
 	s.BackGroundStuff = lipgloss.NewStyle().Foreground(lipgloss.Color(pkg.Catppuccin_subtext0))
+	s.UsageLine = lipgloss.NewStyle().Foreground(lipgloss.Color(pkg.Catppuccin_overlay0)).Italic(true)
 
 	return s
 }
@@ -70,7 +72,7 @@ func InitialModule() Module {
 	ti.Placeholder = "What would you like todo ?"
 
 	// Parsing file
-	TasksParser := pkg.Init("/home/groot/Desktop/go/todo_bubbleTea/testfile")
+	TasksParser := pkg.Init("/home/pythonic/notes/")
 	TasksParser.ParseFile()
 
 	// To take full screent
@@ -114,6 +116,17 @@ func (m Module) updateTasks() {
 	m.tasks.ReplaceTodos()
 }
 
+func (m *Module) addElementToScreent(text string) {
+	if strings.Contains(text, "- [ ]") {
+		m.choice = append(m.choice, text)
+		return
+	} else {
+		fixed := "- [ ] " + text
+		m.choice = append(m.choice, fixed)
+		return
+	}
+
+}
 func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.appMode {
 	case NormalMode:
@@ -182,7 +195,13 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "enter":
 				text := m.textBox.Value()
-				m.choice[m.cursor] = text
+				if strings.Contains(text, "- [ ]") {
+
+					m.choice[m.cursor] = text
+				} else {
+					fixed := "- [ ]" + text
+					m.choice[m.cursor] = fixed
+				}
 				m.textBoxState = false
 				m.appMode = NormalMode
 				return m, nil
@@ -213,7 +232,7 @@ func (m Module) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.appMode = NormalMode
 					return m, nil
 				}
-				m.choice = append(m.choice, text)
+				m.addElementToScreent(text)
 				m.textBoxState = false
 				m.appMode = NormalMode
 				return m, nil
@@ -264,6 +283,15 @@ func (m Module) View() string {
 	textBox := m.styles.InputField.Render(m.textBox.View())
 	scrollPos := m.styles.BackGroundStuff.Render(fmt.Sprintf("📜 [%d/%d]", m.cursor+1, len(m.choice)))
 
+	// Usage line based on current mode
+	var usageLine string
+	switch m.appMode {
+	case NormalMode:
+		usageLine = m.styles.UsageLine.Render("j/k: move • space: toggle • a: add • e: edit • u: update • q: quit")
+	case UpdateTodoMode, AddTodoMode:
+		usageLine = m.styles.UsageLine.Render("enter: save • esc: cancel")
+	}
+
 	// Ensure view window is within bounds
 	end := clamp(m.viewStart+m.viewHeight, 0, len(m.choice))
 	visibleTodos := m.choice[m.viewStart:end]
@@ -288,6 +316,7 @@ func (m Module) View() string {
 			todoList,
 			textBox,
 			scrollPos,
+			usageLine,
 		)
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.styles.ContentBoarder.Render(content))
 	}
@@ -297,6 +326,7 @@ func (m Module) View() string {
 		header,
 		todoList,
 		scrollPos,
+		usageLine,
 	)
 
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.styles.ContentBoarder.Render(content))
@@ -310,4 +340,5 @@ func main() {
 	}
 	clear()
 
+	// InitialModule()
 }
