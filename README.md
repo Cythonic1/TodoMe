@@ -25,8 +25,8 @@ A beautiful, terminal-based todo list manager built with Go and Bubble Tea. Feat
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/bubleTea.git
-cd bubleTea
+git clone https://github.com/Cythonic1/TodoMe.git
+cd TodoMe
 
 # Build the application
 go build -ldflags="-s -w" -o todo-app main.go
@@ -35,11 +35,6 @@ go build -ldflags="-s -w" -o todo-app main.go
 sudo mv todo-app /usr/local/bin/
 ```
 
-### Quick Install
-
-```bash
-go install github.com/yourusername/bubleTea@latest
-```
 
 ## 📖 Usage
 
